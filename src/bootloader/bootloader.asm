@@ -79,6 +79,13 @@ main:
     mov ss, ax
     mov sp, 7c00h
 
+    ; some BIOSes will start us at 07c00:0000 instead of 0000:7c00
+    ; Here we ensure we are at the later address
+    push es
+    push word .after
+    retf                ; a NOP that puts 0000 in CS and 7C-something in IP
+.after:                  ; (the RETF is just going to JMP FAR to right here)
+
     ; display startup message
     mov si, msg_startup
     call puts
