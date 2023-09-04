@@ -163,7 +163,7 @@ disk_read:
     pop ax              ; al = number of sectors to read
     mov ah, 02h         ; interrupt function 02
     mov di, 3           ; retry count
-.retry
+.retry:
     pusha               ; save all registers before BIOS messes them up
     stc                 ; some BIOSes don't set the carry flag
     int 13h
