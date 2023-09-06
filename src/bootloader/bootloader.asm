@@ -39,14 +39,158 @@ bdb_large_sector_count:     dd 0
 ebr_drive_number:           db 0    ; 0 means floppy
                             db 0    ; reserved
 ebr_signature:              db 29h
-ebr_volume_id:              db 11h, 22h, 33h, 44h   ; seriel number (value doesn't matter)
-ebr_volume_label:           db 'BMOS       '    ; 11 bytes, space-padded
-ebr_system_id:              db 'FAT12   '       ; 8 bytes, space-padded
+ebr_volume_id:              db 11h, 22h, 33h, 44h   ; serial number (value doesn't matter)
+ebr_volume_label:           db 'BMOS       '        ; 11 bytes, space-padded
+ebr_system_id:              db 'FAT12   '           ; 8 bytes, space-padded
 
 
 ;-------------------------------------------------------------------------------
 start:
-    jmp main
+    ; initialize segment registers
+    mov ax, 0   ; (because we can't write directly to segment registers)
+    mov ds, ax
+    mov es, ax
+    ; initialize stack address
+    mov ss, ax
+    mov sp, 7c00h
+
+    ; some BIOSes will start us at 07c00:0000 instead of 0000:7c00
+    ; Here we ensure we are at the later address by pushing the correct
+    ; address to the stack and "retf" to that address.  (because only a
+    ; JMP FAR can write to CS:IP)) 
+    push es
+    push word .after
+    retf
+.after:
+    ; display startup message
+    mov si, msg_startup
+    call puts
+
+    ; read Sector 02 from the floppy disk
+    mov [ebr_drive_number], dl  ; BIOS should set drive number in dl
+    mov ax, 1                   ; 2nd sector of disk
+    mov cl, 1                   ; read l sector
+    mov bx, 07E00h              ; store data after bootloader
+    call disk_read
+
+    ; read drive parameters (sectors per track and head count) via BIOS
+    ; instead of relying on the data from the (unreliable?) formatted disk
+    push es
+    mov ah, 08h
+    int 13h
+    jc floppy_error
+    pop es
+
+    xor ch, ch
+    and cl, 3Fh      ; cx = 0000:00xx
+    mov [bdb_sectors_per_track], cx
+    inc dh
+    mov [bdb_heads], dh     ; head count
+
+    ; read FAT root diectory...
+
+    ; calculate LBA of root directory = reserved_sector_count +
+    ;                                   fat_count * sectors_per_fat
+    mov ax, [bdb_sectors_per_fat]
+    xor bh, bh
+    mov bl, [bdb_fat_count]
+    mul bx 
+    add ax, [bdb_reserved_sectors]
+    push ax
+
+    ; compute size of root directory = (32 bytes * number of entries) / bytes_per_sector
+    xor dx, dx
+    mov ax, [bdb_sectors_per_fat]
+    shl ax, 5       ; ax *= 32
+    div word [bdb_bytes_per_sector]
+
+    test dx, dx
+    jz read_root_dir
+    add ax, 1   ; if remainder > 0, round up
+
+ read_root_dir:
+    mov cl, al                      ; number of sectors to read
+    pop ax                          ; LBA of root directory
+    mov dl, [ebr_drive_number]
+    mov bx, buffer                  ; es:bx = buffer
+    call disk_read
+
+    xor bx, bx                      ; bx = directory entry counter
+    mov di, buffer
+.search_kernel:
+    ; search for kernel.bin
+    mov si, file_kernel_bin
+    mov cx, 11                      ; compare up to 11 characters
+    push di
+    repe cmpsb                      ; compare bytes at ds:si with those at es:di
+    pop di
+    je .found_kernel
+    add di, 32                      ; move on the the next directory entry
+    inc bx
+    cmp bx, [bdb_dir_entries_count]
+    jl .search_kernel
+    jmp error_kernel_not_found
+
+.found_kernel:
+    ; di should have the address to the directory entry
+    mov ax, [di+26] ; ax = first logical cluster field (offset 26)
+    mov [kernel_cluster], ax
+
+    ; load FAT from disk into memory
+    mov ax, [bdb_reserved_sectors]
+    mov bx, buffer
+    mov cl, [bdb_sectors_per_fat]
+    mov dl, [ebr_drive_number]
+    call disk_read
+
+    ; read kernel and process FAT chain
+    mov bx, KERNEL_LOAD_SEGMENT
+    mov es, bx
+    mov bx, KERNEL_LOAD_OFFSET
+
+.load_kernel_loop:
+    ; read next cluster
+    mov ax, [kernel_cluster]
+    ; shouldn't hardcode value (works for 1.44MB floppy only)
+    add ax, 31      ; first cluster = (kernel_cluster - 2) * sectors_per_cluster + start_sector
+                    ; start_sector = reserved + fats + root_directory_size = 1 + 18 + 14 = 33
+    mov cl, 1
+    mov dl, [ebr_drive_number]
+    call disk_read
+
+    add bx, [bdb_bytes_per_sector]
+    ; compute location of next cluster
+    mov ax, [kernel_cluster]
+    mov cx, 3
+    mul cx
+    mov cx, 2
+    div cx              ; ax = index of entry in FAT; dx = cluster mod 2
+
+    mov si, buffer
+    add si, ax
+    mov ax, [ds:si]     ; read entry from FAT table at index ax
+
+    or dx, dx
+    jz .even
+.odd:
+    shr ax, 4
+    jmp .next_cluster_after
+.even:
+    and ax, 0FFFh
+.next_cluster_after:
+    cmp ax, 0FF8h        ; marks end of chain
+    jae .read_finish
+    mov [kernel_cluster], ax
+    jmp .load_kernel_loop
+
+.read_finish:
+    ; jump to our kernel
+    mov dl, [ebr_drive_number]  ; boot device in dl
+    mov ax, KERNEL_LOAD_SEGMENT ; set segment registers
+    mov ds, ax
+    mov es, ax
+    jmp KERNEL_LOAD_SEGMENT:KERNEL_LOAD_OFFSET
+
 
 ;-------------------------------------------------------------------------------
 ;   SUBROUTINE PUTS: put string to screen
@@ -67,46 +211,6 @@ puts:
     pop ax
     pop si
     ret
-
-
-;-------------------------------------------------------------------------------
-main:
-    ; initialize segment registers
-    mov ax, 0   ; (because we can't write directly to segment registers)
-    mov ds, ax
-    mov es, ax
-    ; initialize stack address
-    mov ss, ax
-    mov sp, 7c00h
-
-    ; some BIOSes will start us at 07c00:0000 instead of 0000:7c00
-    ; Here we ensure we are at the later address
-    push es
-    push word .after
-    retf                ; a NOP that puts 0000 in CS and 7C-something in IP
-.after:                  ; (the RETF is just going to JMP FAR to right here)
-
-    ; display startup message
-    mov si, msg_startup
-    call puts
-
-    ; read something from floppy disk
-    mov si, msg_disk_read
-    call puts
-    mov [ebr_drive_number], dl    ; BIOS should set drive number in dl
-    mov ax, 1   ; 2nd sector of disk
-    mov cl, 1   ; read l sector
-    mov bx, 07E00h  ; store data after bootloader
-    call disk_read
-
-    ; display halting message
-    mov si, msg_halt
-    call puts
-.halt:
-    cli         ; prevents an interrupt from allowing us to escape from the 'hlt' instruction
-    hlt         ; halts the processor
-    jmp .halt   ; just in case we somehow escape from 'hlt'
-
 
 ;-------------------------------------------------------------------------------
 ; disk routines
@@ -142,12 +246,12 @@ lba_to_chs:
     mov dh, dl                          ; dh = head
     mov ch, al                          ; ch = cylinder (low 8 bits)
     shl ah, 6
-    or cl, ah                           ; 
+    or cl, ah                           ;
 
     pop ax
     mov dl, al      ; restore dl
     pop ax
-    ret 
+    ret
 
 ;-------------------------------------------------------------------------------
 ;   SUBROUTINE disk_read:
@@ -214,6 +318,11 @@ floppy_error:
     call puts
     jmp wait_key_and_reboot
 
+error_kernel_not_found:
+    mov si, msg_missing_kernel
+    call puts
+    jmp wait_key_and_reboot
+
 wait_key_and_reboot:
     mov ah, 0
     int 16h         ; wait for keypress
@@ -223,18 +332,23 @@ wait_key_and_reboot:
 ;-------------------------------------------------------------------------------
 ; DATA SECTION
 ;
-msg_startup:    db 'Starting BMOS...', ENDL, 0
-msg_disk_read:  db 'Reading from disk...', ENDL, 0
-msg_read_fail:  db 'Read from disk failed!', ENDL, 0
-msg_halt:       db 'Halting processor!', ENDL, 0
 
+msg_startup:    db 'starting BMOS', ENDL, 0
+msg_read_fail:  db 'read fail', ENDL, 0
+msg_missing_kernel: db 'no kernel', ENDL, 0
+
+file_kernel_bin db 'KERNEL  BIN'
+kernel_cluster: dw 0
+
+KERNEL_LOAD_SEGMENT equ 2000h
+KERNEL_LOAD_OFFSET equ 0000h
 ; This file is the Boot Sector of our Boot Device (an emulated 3.5"
 ; 1.44MB floppy disk).  As such, it must assemble into exactly 512
-; bytes.  We should zero-pad the rest this memory block, and add the
-; AA55h signature to the end.
-
-; pad the rest of the memory block with 00h
-;   $  => address of current line
-;   $$ => address of beginning of section
+; bytes.  We should zero-pad the rest of this memory block, and add
+; the AA55h signature to the end.
+;      $ => address of current line
+;     $$ => address of beginning of section
 times 510-($-$$) db 0   ; zero-pad from current location to byte 510
 dw 0AA55h               ; bytes 511/512
+
+buffer:
