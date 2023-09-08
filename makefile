@@ -1,5 +1,7 @@
 ASM=nasm
 CC=gcc
+CC16=/usr/bin/watcom/binl/wcc
+LD16=/usr/bin/watcom/binl/wlink
 SRC_DIR=src
 BUILD_DIR=build
 REFS_DIR=reference
@@ -13,21 +15,38 @@ always:
 	mkdir -p $(BUILD_DIR)
 
 clean:
+	$(MAKE) -C $(SRC_DIR)/bootloader/stage1 BUILD_DIR=$(abspath $(BUILD_DIR)) clean
+	$(MAKE) -C $(SRC_DIR)/bootloader/stage2 BUILD_DIR=$(abspath $(BUILD_DIR)) clean
+	$(MAKE) -C $(SRC_DIR)/kernel BUILD_DIR=$(abspath $(BUILD_DIR)) clean
 	rm -rf $(BUILD_DIR)/*
 
-bootloader: $(BUILD_DIR)/bootloader.bin
-$(BUILD_DIR)/bootloader.bin: always
-	$(ASM) -l $(BUILD_DIR)/bootloader.lst $(SRC_DIR)/bootloader/bootloader.asm -f bin -o $(BUILD_DIR)/bootloader.bin
+#bootloader: $(BUILD_DIR)/bootloader.bin
+#$(BUILD_DIR)/bootloader.bin: always
+#	$(ASM) -l $(BUILD_DIR)/bootloader.lst $(SRC_DIR)/bootloader/bootloader.asm -f bin -o $(BUILD_DIR)/bootloader.bin
+
+bootloader: stage1 stage2
+
+stage1: $(BUILD_DIR)/stage1.bin
+$(BUILD_DIR)/stage1.bin: always
+	@echo "\nBUILDING STAGE_1"
+	$(MAKE) -C $(SRC_DIR)/bootloader/stage1 BUILD_DIR=$(abspath $(BUILD_DIR))
+
+stage2: $(BUILD_DIR)/stage2.bin
+$(BUILD_DIR)/stage2.bin: always
+	@echo "\nBUILDING STAGE_2"
+	$(MAKE) -C $(SRC_DIR)/bootloader/stage2 BUILD_DIR=$(abspath $(BUILD_DIR))
 
 kernel: $(BUILD_DIR)/kernel.bin
 $(BUILD_DIR)/kernel.bin: always
-	$(ASM) -l $(BUILD_DIR)/kernel.lst $(SRC_DIR)/kernel/kernel.asm -f bin -o $(BUILD_DIR)/kernel.bin
+	@echo "\nBUILDING KERNEL"
+	$(MAKE) -C $(SRC_DIR)/kernel BUILD_DIR=$(abspath $(BUILD_DIR))
 
 floppy: $(BUILD_DIR)/main_floppy.img
 $(BUILD_DIR)/main_floppy.img: bootloader kernel
 	dd if=/dev/zero of=$(BUILD_DIR)/main_floppy.img bs=512 count=2880
 	mkfs.fat -F 12 -n "BMOS" $(BUILD_DIR)/main_floppy.img
-	dd if=$(BUILD_DIR)/bootloader.bin of=$(BUILD_DIR)/main_floppy.img conv=notrunc
+	dd if=$(BUILD_DIR)/stage1.bin of=$(BUILD_DIR)/main_floppy.img conv=notrunc
+	mcopy -i $(BUILD_DIR)/main_floppy.img $(BUILD_DIR)/stage2.bin "::stage2.bin"
 	mcopy -i $(BUILD_DIR)/main_floppy.img $(BUILD_DIR)/kernel.bin "::kernel.bin"
 	mcopy -i $(BUILD_DIR)/main_floppy.img $(REFS_DIR)/test.txt "::test.txt"
 

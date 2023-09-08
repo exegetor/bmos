@@ -25,6 +25,10 @@ REQUIREMENTS:
 * A graphical debugger, to see what's going wrong!
     `sudo apt install bochs bochs-sdl bochsbios vgabios`
 
+* A C compiler with 16-bit real-mode capability, such as
+    https://github.com/open-watcom/open-watcom-v2/releases
+
+
 nice to have:
 
 *   Git + GitHub

@@ -117,24 +117,24 @@ start:
 
     xor bx, bx                      ; bx = directory entry counter
     mov di, buffer
-.search_kernel:
-    ; search for kernel.bin
-    mov si, file_kernel_bin
+.search_stage2:
+    ; search for stage2.bin
+    mov si, file_stage2_bin
     mov cx, 11                      ; compare up to 11 characters
     push di
     repe cmpsb                      ; compare bytes at ds:si with those at es:di
     pop di
-    je .found_kernel
+    je .found_stage2
     add di, 32                      ; move on the the next directory entry
     inc bx
     cmp bx, [bdb_dir_entries_count]
-    jl .search_kernel
-    jmp error_kernel_not_found
+    jl .search_stage2
+    jmp error_stage2_not_found
 
-.found_kernel:
+.found_stage2:
     ; di should have the address to the directory entry
     mov ax, [di+26] ; ax = first logical cluster field (offset 26)
-    mov [kernel_cluster], ax
+    mov [stage2_cluster], ax
 
     ; load FAT from disk into memory
     mov ax, [bdb_reserved_sectors]
@@ -143,16 +143,16 @@ start:
     mov dl, [ebr_drive_number]
     call disk_read
 
-    ; read kernel and process FAT chain
-    mov bx, KERNEL_LOAD_SEGMENT
+    ; read stage2 and process FAT chain
+    mov bx, STAGE2_LOAD_SEGMENT
     mov es, bx
-    mov bx, KERNEL_LOAD_OFFSET
+    mov bx, STAGE2_LOAD_OFFSET
 
-.load_kernel_loop:
+.load_stage2_loop:
     ; read next cluster
-    mov ax, [kernel_cluster]
+    mov ax, [stage2_cluster]
     ; shouldn't hardcode value (works for 1.44MB floppy only)
-    add ax, 31      ; first cluster = (kernel_cluster - 2) * sectors_per_cluster + start_sector
+    add ax, 31      ; first cluster = (stage2_cluster - 2) * sectors_per_cluster + start_sector
                     ; start_sector = reserved + fats + root_directory_size = 1 + 18 + 14 = 33
     mov cl, 1
     mov dl, [ebr_drive_number]
@@ -160,7 +160,7 @@ start:
 
     add bx, [bdb_bytes_per_sector]
     ; compute location of next cluster
-    mov ax, [kernel_cluster]
+    mov ax, [stage2_cluster]
     mov cx, 3
     mul cx
     mov cx, 2
@@ -180,16 +180,16 @@ start:
 .next_cluster_after:
     cmp ax, 0FF8h        ; marks end of chain
     jae .read_finish
-    mov [kernel_cluster], ax
-    jmp .load_kernel_loop
+    mov [stage2_cluster], ax
+    jmp .load_stage2_loop
 
 .read_finish:
-    ; jump to our kernel
+    ; jump to our stage2
     mov dl, [ebr_drive_number]  ; boot device in dl
-    mov ax, KERNEL_LOAD_SEGMENT ; set segment registers
+    mov ax, STAGE2_LOAD_SEGMENT ; set segment registers
     mov ds, ax
     mov es, ax
-    jmp KERNEL_LOAD_SEGMENT:KERNEL_LOAD_OFFSET
+    jmp STAGE2_LOAD_SEGMENT:STAGE2_LOAD_OFFSET
 
 
 ;-------------------------------------------------------------------------------
@@ -318,8 +318,8 @@ floppy_error:
     call puts
     jmp wait_key_and_reboot
 
-error_kernel_not_found:
-    mov si, msg_missing_kernel
+error_stage2_not_found:
+    mov si, msg_missing_stage2
     call puts
     jmp wait_key_and_reboot
 
@@ -335,13 +335,13 @@ wait_key_and_reboot:
 
 msg_startup:    db 'starting BMOS', ENDL, 0
 msg_read_fail:  db 'read fail', ENDL, 0
-msg_missing_kernel: db 'no kernel', ENDL, 0
+msg_missing_stage2: db 'no stage2', ENDL, 0
 
-file_kernel_bin db 'KERNEL  BIN'
-kernel_cluster: dw 0
+file_stage2_bin db 'STAGE2  BIN'
+stage2_cluster: dw 0
 
-KERNEL_LOAD_SEGMENT equ 2000h
-KERNEL_LOAD_OFFSET equ 0000h
+STAGE2_LOAD_SEGMENT equ 2000h
+STAGE2_LOAD_OFFSET equ 0000h
 ; This file is the Boot Sector of our Boot Device (an emulated 3.5"
 ; 1.44MB floppy disk).  As such, it must assemble into exactly 512
 ; bytes.  We should zero-pad the rest of this memory block, and add
