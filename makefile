@@ -7,7 +7,7 @@ BUILD_DIR=build
 REFS_DIR=reference
 
 
-.PHONY: all always clean bootloader kernel floppy run debug ref_fat test test_corrupt_floppy test_no_kernel
+.PHONY: all always clean bootloader kernel floppy run debug ref_fat test_all test_corrupt_floppy test_no_kernel test_c
 
 all: always clean bootloader kernel ref_fat floppy
 
@@ -62,7 +62,7 @@ $(BUILD_DIR)/refs/fat: always $(REFS_DIR)/fat/fat.c
 	mkdir -p $(BUILD_DIR)/refs
 	$(CC) -g -o $(BUILD_DIR)/refs/fat $(REFS_DIR)/fat/fat.c
 
-test: always test_corrupt_floppy test_no_kernel
+test_all: always test_corrupt_floppy test_no_kernel test_c
 
 test_corrupt_floppy:
 	echo "testing MBOS with a corrupt floppy"
@@ -74,3 +74,8 @@ test_no_kernel:
 	mdel  -i $(BUILD_DIR)/main_floppy.img "::kernel.bin"
 	qemu-system-i386 --drive format=raw,file=$(BUILD_DIR)/main_floppy.img
 	mcopy -i $(BUILD_DIR)/main_floppy.img $(BUILD_DIR)/kernel.bin "::kernel.bin"
+
+test_c: $(BUILD_DIR)/tests.bin
+$(BUILD_DIR)/tests.bin: always
+	@echo "\nBUILDING TEST HARNESS"
+	$(MAKE) -C $(SRC_DIR)/test BUILD_DIR=$(abspath $(BUILD_DIR))
