@@ -1,13 +1,37 @@
 #include "stdint.h"
 #include "stdio.h"
-
+#include "disk.h"
+#include "fat.h"
 
 /*----------------------------------------------------------------------------*/
-void _cdecl cstart_(uint16_t bootdrive)
+void _cdecl cstart_(uint16_t bootDrive)
 {
-    printf("formatted text: %c %% %s\r\n", 'a', "string");
-    printf("formatted numbers: %d %i %x %p %o %hd %hi %hhu %hhd\r\n", 1234, -5678, 0xdead, 0xbeef, 012345,  (short)27, (short)-42, (unsigned char)20, (char)-10);
-    printf("formatted numbers: %ld %lx %lld %llx\r\n", -123456789l, 0xdeadbeeful, 10200300400ll,  0xdeadbeefbaadcafeull);
+    printf("Entering stage2\r\n");
+
+    DISK disk;
+    if (!DISK_Initialize(&disk, bootDrive)) {
+        printf("Disk init error\r\n");
+        goto end;
+    }
+    if (!FAT_Initialize(&disk)) {
+        printf("FAT init error\r\n");
+        goto end;
+    }
+    /* browse files in root */
+    FAT_File far* fd = FAT_Open(&disk, "/");
+    FAT_DirectoryEntry entry;
+    int i = 0;
+    while (FAT_ReadEntry(&disk, fd, &entry) && i++ < 5) {
+        printf("  ");
+        for (int i = 0; i < 11; i++)
+            putc(entry.Name[i]);
+        printf("\r\n");
+
+
+    }
+    FAT_Close(fd);
+
+end:
     for (;;)
         ;
 }

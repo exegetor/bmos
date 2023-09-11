@@ -13,5 +13,15 @@ typedef signed long long int int64_t;
 typedef unsigned long long int uint64_t;
 
 typedef uint8_t bool;
-#define true 1;
-#define false 0;
+
+#define false 0
+#define true  1
+
+#define NULL ((void*)0)
+
+/* 
+**  shouldn't have a&b twice on same line, since (for example) 
+**  min(a++,b) will have a incremented twice!
+*/
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a,b) ((a) > (b) ? (a) : (b))

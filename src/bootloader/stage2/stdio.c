@@ -1,7 +1,7 @@
 #include "stdio.h"
 #include "x86.h"
 
-int* printf_number(int *argp, int length, bool sign, int radix);
+int* printf_number(int* argp, int length, bool sign, int radix);
 
 
 /*----------------------------------------------------------------------------*/
@@ -11,7 +11,7 @@ void putc(char c)
 }
 
 /*----------------------------------------------------------------------------*/
-void puts(const char *str)
+void puts(const char* str)
 {
     while (*str) {
         putc(*str);
@@ -33,16 +33,17 @@ void puts(const char *str)
 #define PRINTF_LENGTH_LONG         3
 #define PRINTF_LENGTH_LONG_LONG    4
 
-void _cdecl printf(const char *fmt, ...)
+void _cdecl printf(const char* fmt, ...)
 {
-    int *argp = (int*)&fmt;
-    int state = PRINTF_STATE_NORMAL;
-    int length = PRINTF_LENGTH_DEFAULT;  
-    int radix = 10;
+    int* argp = (int*)&fmt;
+    int  state = PRINTF_STATE_NORMAL;
+    int  length = PRINTF_LENGTH_DEFAULT;
+    int  radix = 10;
     bool sign = false;
+
     argp++;
 
-    while ( *fmt) {
+    while (*fmt) {
         switch (state) {
         case PRINTF_STATE_NORMAL:
             switch (*fmt) {
@@ -122,7 +123,8 @@ void _cdecl printf(const char *fmt, ...)
 
 /*----------------------------------------------------------------------------*/
 const char g_hex_chars[] = "0123456789abcdef";
-int* printf_number(int *argp, int length, bool sign, int radix)
+
+int* printf_number(int* argp, int length, bool sign, int radix)
 {
     char buffer[32];
     unsigned long long number;
@@ -135,7 +137,7 @@ int* printf_number(int *argp, int length, bool sign, int radix)
         case PRINTF_LENGTH_SHORT_SHORT:
             if (sign) {
                 int n = *argp;
-                if (n<0) {
+                if (n < 0) {
                     n = -n;
                     number_sign = -1;
                 }
@@ -146,10 +148,11 @@ int* printf_number(int *argp, int length, bool sign, int radix)
             }
             argp++;
             break;
+
         case PRINTF_LENGTH_LONG:
             if (sign) {
                 long int n = *(long int*)argp;
-                if (n<0) {
+                if (n < 0) {
                     n = -n;
                     number_sign = -1;
                 }
@@ -160,10 +163,11 @@ int* printf_number(int *argp, int length, bool sign, int radix)
             }
             argp += 2;
             break;
+
         case PRINTF_LENGTH_LONG_LONG:
             if (sign) {
                 long long int n = *(long long int*)argp;
-                if (n<0) {
+                if (n < 0) {
                     n = -n;
                     number_sign = -1;
                 }
@@ -176,17 +180,16 @@ int* printf_number(int *argp, int length, bool sign, int radix)
             break;
     }/* switch(length) */
 
-    /* convert to ASCII */
+    /* convert number to ASCII */
     do {
         uint32_t remainder;
         x86_div64_32(number, radix, &number, &remainder);  /* remainder = number % radix; number = numer / radix */
         buffer[pos++] = g_hex_chars[remainder];
     } while (number > 0);
     /* add sign */
-    if (sign && number_sign < 0) {
+    if (sign && number_sign < 0)
         buffer[pos++] = '-';
-    }
-    /* print in reverse order */
+    /* print number in reverse order */
     while (--pos >= 0)
         putc(buffer[pos]);
 
