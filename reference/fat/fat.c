@@ -34,7 +34,7 @@ typedef struct
 } __attribute__((packed)) BootSector;
 BootSector g_BootSector;
 
-uint8_t *g_Fat = NULL;
+uint8_t* g_Fat = NULL;
 
 typedef struct
 {
@@ -51,7 +51,7 @@ typedef struct
     uint16_t FirstClusterLow;
     uint32_t Size;
 } __attribute__((packed)) DirectoryEntry;
-DirectoryEntry *g_RootDirectory = NULL;
+DirectoryEntry* g_RootDirectory = NULL;
 
 uint32_t g_RootDirectoryEnd;
 
@@ -91,11 +91,11 @@ void print_boot_data()
 }
 
 //------------------------------------------------------------------------------
-bool readSectors(FILE* disk, uint32_t lba, uint32_t count,  void *bufferOut)
+bool readSectors(FILE* disk, uint32_t lba, uint32_t count,  void* bufferOut)
 {
     bool ok = true;
 
-    ok = ok && (fseek(disk, lba * g_BootSector.BytesPerSector, SEEK_SET) == 0);
+    ok = ok && (fseek(disk, lba* g_BootSector.BytesPerSector, SEEK_SET) == 0);
     if (!ok)
         fprintf(stderr, "fseek failed (lba=%d)(count=%d)\n", lba, count);
 
@@ -106,7 +106,7 @@ bool readSectors(FILE* disk, uint32_t lba, uint32_t count,  void *bufferOut)
 }
 
 //------------------------------------------------------------------------------
-bool readFAT(FILE *disk)
+bool readFAT(FILE* disk)
 {
     g_Fat = (uint8_t*)malloc(g_BootSector.SectorsPerFAT * g_BootSector.BytesPerSector);
 //    if (!g_Fat)
@@ -116,7 +116,7 @@ bool readFAT(FILE *disk)
 
 
 //------------------------------------------------------------------------------
-bool readRootDirectory(FILE *disk)
+bool readRootDirectory(FILE* disk)
 {
     uint32_t lba = g_BootSector.ReservedSectors + g_BootSector.FatCount * g_BootSector.SectorsPerFAT;
     uint32_t size = sizeof(DirectoryEntry) * g_BootSector.DirEntryCount;
@@ -134,7 +134,7 @@ bool readRootDirectory(FILE *disk)
 
 
 //------------------------------------------------------------------------------
-DirectoryEntry* findFile(const char *name)
+DirectoryEntry* findFile(const char* name)
 {
     for (uint32_t i = 0; i < g_BootSector.DirEntryCount; i++) {
         if (memcmp(name, g_RootDirectory[i].Name, 11) == 0)
@@ -145,7 +145,7 @@ DirectoryEntry* findFile(const char *name)
 
 
 //------------------------------------------------------------------------------
-bool readFile(DirectoryEntry *fileEntry, FILE *disk, uint8_t *outputBuffer)
+bool readFile(DirectoryEntry* fileEntry, FILE* disk, uint8_t* outputBuffer)
 {
     bool ok = true;
     uint16_t currentCluster = fileEntry->FirstClusterLow;
@@ -200,7 +200,7 @@ int main(int argc, char **argv)
         return -4;
     }
 
-    DirectoryEntry *fileEntry = findFile(argv[2]);
+    DirectoryEntry* fileEntry = findFile(argv[2]);
     if (!fileEntry) {
         fprintf(stderr, "Cannot locate file %s\n", argv[2]);
         free(g_Fat);
@@ -208,7 +208,7 @@ int main(int argc, char **argv)
         return -5;
     }
 
-    uint8_t *buffer = (uint8_t*)malloc(fileEntry->Size + g_BootSector.BytesPerSector);
+    uint8_t* buffer = (uint8_t*)malloc(fileEntry->Size + g_BootSector.BytesPerSector);
     if (!buffer)
         goto fail;
     if (!readFile(fileEntry, disk, buffer)) {
