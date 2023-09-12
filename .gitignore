@@ -1,3 +1,5 @@
 build/*
 bx_enh_dbg.ini
 *.err
+*.bak
+toolchain/*
