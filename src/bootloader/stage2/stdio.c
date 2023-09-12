@@ -48,12 +48,10 @@ void putcolor(int x, int y, uint8_t color)
 /*----------------------------------------------------------------------------*/
 void putc(const char c)
 {
-    putchr(g_ScreenPos_X, g_ScreenPos_Y, c);
     switch (c) {
         case '\n':
-            g_ScreenPos_X = 0;
             g_ScreenPos_Y++;
-            break;
+            // fall through to case '\r'...
         case '\r':
             g_ScreenPos_X = 0;
             break;
