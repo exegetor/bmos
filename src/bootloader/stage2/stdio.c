@@ -15,7 +15,24 @@ uint8_t g_ScreenPos_X = 0;
 const unsigned SCREEN_HEIGHT = 25;
 uint8_t g_ScreenPos_Y = 0;
 
+const uint8_t DEFAULT_COLOR = 0x07;
 
+/*------------------------------------------------------------------------------
+** FORWARD DECLARATIONS
+*/
+void putchr(int x, int y, const char c);
+void putcolor(int x, int y, uint8_t color);
+
+/*----------------------------------------------------------------------------*/
+void clrscr()
+{
+    for (int y = 0; y < SCREEN_HEIGHT; y++) {
+        for (int x = 0; x < SCREEN_WIDTH; x++) {
+            putchr(x, y, ' ');
+            putcolor(x, y, DEFAULT_COLOR);
+        }
+    }
+}
 /*----------------------------------------------------------------------------*/
 void putchr(int x, int y, const char c)
 {
@@ -109,7 +126,7 @@ void printf_signed(long long number, int radix)
 #define PRINTF_LENGTH_LONG         3
 #define PRINTF_LENGTH_LONG_LONG    4
 
-void printf(char* fmt, ...)
+void printf(const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
