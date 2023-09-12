@@ -1,15 +1,13 @@
-ASM=nasm
-CC=gcc
-CC16=/usr/bin/watcom/binl/wcc
-LD16=/usr/bin/watcom/binl/wlink
 SRC_DIR=src
-BUILD_DIR=build
 REFS_DIR=reference
-
 
 .PHONY: all always clean bootloader kernel floppy run debug ref_fat test_all test_corrupt_floppy test_no_kernel test_c
 
+include build_scripts/config.mk
+
 all: always clean bootloader kernel ref_fat floppy
+
+include build_scripts/toolchain.mk
 
 always:
 	mkdir -p $(BUILD_DIR)
