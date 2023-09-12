@@ -340,8 +340,8 @@ msg_missing_stage2: db 'no stage2', ENDL, 0
 file_stage2_bin db 'STAGE2  BIN'
 stage2_cluster: dw 0
 
-STAGE2_LOAD_SEGMENT equ 2000h
-STAGE2_LOAD_OFFSET equ 0000h
+STAGE2_LOAD_SEGMENT equ 0000h
+STAGE2_LOAD_OFFSET  equ 0500h
 ; This file is the Boot Sector of our Boot Device (an emulated 3.5"
 ; 1.44MB floppy disk).  As such, it must assemble into exactly 512
 ; bytes.  We should zero-pad the rest of this memory block, and add
