@@ -53,12 +53,16 @@ entry:
     cld
     rep stosb
 
-    ; send g_boot_drive as argument to cstart() function
+    ; now we switch to c-code
+
+    ; send g_boot_drive as argument to start() function
     xor edx, edx
     mov dl, [g_boot_drive]
     push dx
     call start
-
+    ; start() should be an eternal loop,
+    ; but just in case it happens to return,
+    ; we'll do an eternal loop here...
 .halt:
     jmp .halt
 
