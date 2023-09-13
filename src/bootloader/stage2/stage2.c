@@ -5,5 +5,6 @@
 void __attribute__((cdecl)) start(uint16_t bootDrive)
 {
     clrscr();
-    printf(" Entering stage2\r\n");
+    for (int i = 0; i < 1000; i++)
+        printf("Entering stage2 %d\n", i);
 }

@@ -1,7 +1,8 @@
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include "stdio.h"
-//#include "x86.h"
+#include "x86.h"
 
 /*----------------------------------------------------------------------------*/
 #define TAB_STOPS 4
@@ -21,7 +22,10 @@ const uint8_t DEFAULT_COLOR = 0x07;
 ** FORWARD DECLARATIONS
 */
 void putchr(int x, int y, const char c);
+char getchr(int x, int y);
 void putcolor(int x, int y, uint8_t color);
+uint8_t getcolor(int x, int y);
+void setcursor(int x, int y);
 
 /*----------------------------------------------------------------------------*/
 void clrscr()
@@ -32,7 +36,27 @@ void clrscr()
             putcolor(x, y, DEFAULT_COLOR);
         }
     }
+    g_ScreenPos_X = 0;
+    g_ScreenPos_Y = 0;
+    setcursor(0, 0);
 }
+
+/*----------------------------------------------------------------------------*/
+void scrollback(int lines)
+{
+    for (int y = lines; y < SCREEN_HEIGHT; y++)
+        for (int x = 0; x < SCREEN_WIDTH; x++) {
+            putchr(x, y - lines, (getchr(x, y)));
+            putcolor(x, y - lines, (getcolor(x, y)));
+        }
+    for (int y = SCREEN_HEIGHT - lines; y < SCREEN_HEIGHT; y++)    
+        for (int x = 0; x < SCREEN_WIDTH; x++) {
+            putchr(x, y, ' ');
+            putcolor(x, y, DEFAULT_COLOR);
+        }
+    g_ScreenPos_Y -= lines;    
+}
+
 /*----------------------------------------------------------------------------*/
 void putchr(int x, int y, const char c)
 {
@@ -40,9 +64,21 @@ void putchr(int x, int y, const char c)
 }
 
 /*----------------------------------------------------------------------------*/
+char getchr(int x, int y)
+{
+    return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)];
+}
+
+/*----------------------------------------------------------------------------*/
 void putcolor(int x, int y, uint8_t color)
 {
     g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1] = color;
+}
+
+/*----------------------------------------------------------------------------*/
+uint8_t getcolor(int x, int y)
+{
+    return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1];
 }
 
 /*----------------------------------------------------------------------------*/
@@ -69,6 +105,9 @@ void putc(const char c)
         g_ScreenPos_Y++;
         g_ScreenPos_X = 0;
     }
+    if (g_ScreenPos_Y >= SCREEN_HEIGHT)
+        scrollback(1);
+    setcursor(g_ScreenPos_X, g_ScreenPos_Y);
 }/* putc() */
 
 /*----------------------------------------------------------------------------*/
@@ -80,6 +119,17 @@ void puts(const char* str)
     }
 }
 
+
+/*----------------------------------------------------------------------------*/
+void setcursor(int x, int y)
+{
+    // see https://www.wiki.osdev.org/VGA_Hardware
+    int pos = y * SCREEN_WIDTH + x;
+    x86_outb(0x3D4, 0x0F);
+    x86_outb(0x3D5, (uint8_t)(pos & 0xFF));     // why AND a byte with FF?
+    x86_outb(0x3D4, 0x0E);
+    x86_outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));  // ^this
+}
 
 /*----------------------------------------------------------------------------*/
 const char g_hex_chars[] = "0123456789abcdef";
