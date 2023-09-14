@@ -18,6 +18,8 @@ uint8_t g_ScreenPos_Y = 0;
 
 const uint8_t DEFAULT_COLOR = 0x07;
 
+const char g_HexChars[] = "0123456789abcdef";
+
 /*------------------------------------------------------------------------------
 ** FORWARD DECLARATIONS
 */
@@ -82,7 +84,7 @@ uint8_t getcolor(int x, int y)
 }
 
 /*----------------------------------------------------------------------------*/
-void putc(const char c)
+void putc(char c)
 {
     switch (c) {
         case '\n':
@@ -92,9 +94,8 @@ void putc(const char c)
             g_ScreenPos_X = 0;
             break;
         case '\t':
-            for (int i = 0; i < 4 - (g_ScreenPos_X % TAB_STOPS); i++) {
+            for (int i = 0; i < 4 - (g_ScreenPos_X % TAB_STOPS); i++)
                 putc(' ');
-            }
             break;
         default:
             putchr(g_ScreenPos_X, g_ScreenPos_Y, c);
@@ -132,7 +133,6 @@ void setcursor(int x, int y)
 }
 
 /*----------------------------------------------------------------------------*/
-const char g_hex_chars[] = "0123456789abcdef";
 
 void printf_unsigned(unsigned long long number, int radix)
 {
@@ -143,7 +143,7 @@ void printf_unsigned(unsigned long long number, int radix)
     do {
         unsigned long long remainder = number % radix;
         number /= radix;
-        buffer[pos++] = g_hex_chars[remainder];
+        buffer[pos++] = g_HexChars[remainder];
     } while (number > 0);
 
     /* print number in reverse order */
@@ -154,9 +154,9 @@ void printf_unsigned(unsigned long long number, int radix)
 /*----------------------------------------------------------------------------*/
 void printf_signed(long long number, int radix)
 {
-    if (number < 0 ) {
-            putc('-');
-            printf_unsigned(-number, radix);
+    if (number < 0) {
+        putc('-');
+        printf_unsigned(-number, radix);
     }
     else printf_unsigned(number, radix);
 }
@@ -220,9 +220,8 @@ void printf(const char* fmt, ...)
                     length = PRINTF_LENGTH_LONG_LONG;
                     state = PRINTF_STATE_SPEC;
                 }
-                else {
+                else
                     goto PRINTF_STATE_SPEC_;
-                }
                 break;
             case PRINTF_STATE_SPEC:
             PRINTF_STATE_SPEC_:
@@ -302,3 +301,26 @@ void printf(const char* fmt, ...)
     }
     va_end(args);
 }/* printf() */
+
+/*----------------------------------------------------------------------------*/
+void print_buffer(const char* msg, const void* buffer, uint32_t count)
+{
+    const uint8_t* u8Buffer = (const uint8_t*)buffer;
+    uint8_t byte;
+    uint8_t hi_nibble;
+    uint8_t lo_nibble;
+
+    puts(msg);
+    for (uint32_t i = 0; i < count; i++) {
+        if (i%32 == 0) {
+            putc('\r');
+            putc('\n');
+        }
+        byte = u8Buffer[i];
+        hi_nibble = byte >> 4;
+        putc(g_HexChars[hi_nibble]);
+        lo_nibble = byte & 0x0F;
+        putc(g_HexChars[lo_nibble]);
+    }
+    puts("\n");
+}
