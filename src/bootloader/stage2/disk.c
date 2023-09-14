@@ -1,5 +1,6 @@
 #include "disk.h"
 #include "x86.h"
+#include "stdio.h"
 
 /*----------------------------------------------------------------------------*/
 bool DISK_Initialize(DISK* disk, uint8_t driveNumber)
@@ -10,7 +11,7 @@ bool DISK_Initialize(DISK* disk, uint8_t driveNumber)
     uint16_t sectors;
 
 //    disk->id = driveNumber;
-    if (!x86_Disk_GetDriveParams(disk->id, &driveType, &cylinders, &heads, &sectors))
+    if (!x86_disk_get_drive_params(disk->id, &driveType, &cylinders, &heads, &sectors))
         return false;
     disk->id = driveNumber;
     disk->cylinders = cylinders + 1;
@@ -31,17 +32,18 @@ void DISK_LBA2CHS(DISK* disk, uint32_t lba, uint16_t* cylinderOut, uint16_t* hea
 }
 
 /*----------------------------------------------------------------------------*/
-bool DISK_ReadSectors(DISK* disk, uint32_t lba, uint8_t sectorsToRead, void far* dataOut)
+bool DISK_ReadSectors(DISK* disk, uint32_t lba, uint8_t sectorsToRead, void* dataOut_lower_mem)
 {
     uint16_t cylinder;
     uint16_t head;
     uint16_t sector;
 
     DISK_LBA2CHS(disk, lba, &cylinder, &head, &sector);
+    printf("reading LBA %u (C %u, H %u, S %u)\r\n", lba, cylinder, head, sector);
     for (int i = 0; i < 3; i++) {
-        if (x86_Disk_Read(disk->id, cylinder, head, sector, sectorsToRead, dataOut))
+        if (x86_disk_read(disk->id, cylinder, head, sector, sectorsToRead, dataOut_lower_mem))
             return true;
-        x86_Disk_Reset(disk->id);
+        x86_disk_reset(disk->id);
     }
     return false;
 }
