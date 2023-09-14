@@ -3,20 +3,16 @@
 #include "x86.h"
 
 /*----------------------------------------------------------------------------*/
-void puts_realmode(const char* str)
-{
-    while (*str) {
-        x86_realmode_putc(*str);
-        ++str;
-    }
-}
-
-/*----------------------------------------------------------------------------*/
 void __attribute__((cdecl)) start(uint16_t bootDrive)
 {
-    //clrscr();
-    printf("Entering stage2 %d\n");
-    puts_realmode("Hello from real mode");    
+    uint8_t driveType;
+    uint16_t cylinders, heads, sectors;
+
+//    clrscr();
+    printf("Entering stage2\n");
+    x86_disk_get_drive_params(bootDrive,   &driveType,   &cylinders,   &heads,   &sectors);
+    printf(    "drive params: bootDrive=%u, driveType=%u, cylinders=%u, heads=%u, sectors=%u",
+                              bootDrive,    driveType,    cylinders,    heads,    sectors);
     for (;;)
         ;
 }
