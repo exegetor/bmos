@@ -50,7 +50,8 @@ $(BUILD_DIR)/main_floppy.img: bootloader kernel
 
 run:
 	echo "testing MBOS in working configuration"
-	qemu-system-i386 --drive format=raw,file=$(BUILD_DIR)/main_floppy.img
+	qemu-system-i386 -fda $(BUILD_DIR)/main_floppy.img
+#	qemu-system-i386 --drive format=raw,file=$(BUILD_DIR)/main_floppy.img
 
 debug:
 	bochs -f bochs.config
