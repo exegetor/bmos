@@ -144,6 +144,96 @@ x86_disk_get_drive_params:
     ret
 
 ;-------------------------------------------------------------------------------
+; bool _cdecl x86_Disk_Reset(uint8_t drive);
+; IN    [bp+8] : drive number
+; OUT   eax : 0=fail, 1=success
+global x86_disk_reset
+x86_disk_reset:
+    [bits 32]
+    ; make new call frame
+    push ebp      ; save old call frame
+    mov ebp, esp  ; initialize new call frame
+
+    x86_enter_real_mode
+    [bits 16]
+    mov ah, 0
+    mov dl, [bp + 8]
+    stc
+    int 13h    ; carry flag set on fail
+    mov eax, 1  ; return 1 on success
+    sbb eax, 0  ; return 0 if carry flag set
+    push eax
+    x86_enter_protected_mode
+    [bits 32]
+    pop eax
+    ; restore old call frame
+    mov esp, ebp
+    pop ebp
+    ret
+
+;-------------------------------------------------------------------------------
+; bool _cdecl x86_Disk_Read(uint8_t   drive,
+;                           uint16_t  cylinder,
+;                           uint16_t  head,
+;                           uint16_t  sector,
+;                           uint8_t   count,
+;                           void far* dataOut);
+; IN:   [bp +  8] : drive number
+;       [bp + 12] : cylinder
+;       [bp + 16] : head
+;       [bp + 20] : sector
+;       [bp + 24] : count
+;       [bp + 28] : dataOut
+; OUT:  eax : 0=fail, 1=success
+
+global x86_disk_read
+x86_disk_read:
+    [bits 32]
+    ; make new call frame
+    push ebp      ; save old call frame
+    mov ebp, esp  ; initialize new call frame
+
+    x86_enter_real_mode
+    [bits 16]
+    push ebx
+    push es
+
+    ; set up args
+    mov dl, [bp + 8]   ; dl = drive
+
+    mov ch, [bp + 12]  ; ch - cylinder (lower 8 bits)
+    mov cl, [bp + 13]  ; cl - cylinder to bits 6-7
+    shl cl, 6          ;      (XX00:0000)
+
+    mov al, [bp + 20]  ; al = low 8 bits of sector
+    and al, 00111111b
+    or cl, al          ; cl = sector to bits 0-5
+
+    mov dh, [bp + 16]   ; dh = head
+    mov al, [bp + 24]  ; al = count
+
+    linear_address_to_seg_offset [bp+28], es, ebx, bx
+
+    mov ah, 02h
+    stc
+    int 13h     ; carry flag set on fail
+    mov eax, 1   ; return 1 on success
+    sbb eax, 0   ; return 0 if carry flag set
+
+    pop es
+    pop ebx
+
+    push eax
+    x86_enter_protected_mode
+    [bits 32]
+    pop eax
+
+    ; restore old call frame
+    mov esp, ebp
+    pop ebp
+    ret
+
+;-------------------------------------------------------------------------------
 ; DELETE ME
 ; function for testing a temporary switch to real mode.  call from c.
 global x86_realmode_putc
