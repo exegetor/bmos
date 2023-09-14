@@ -8,8 +8,8 @@
 #define MEMORY_MAX                   0x00080000
 
 /* 0000:0500 - 0001:0500 - FAT driver */
-#define MEMORY_FAT_ADDR  ((void far*)0x00500000) /* == 0050:0000 = 0000:0500*/
-#define MEMORY_FAT_SIZE              0x00010000
+#define MEMORY_FAT_ADDR  (void*)0x20000
+#define MEMORY_FAT_SIZE         0x10000
 
 /* 0002:0000 - 0003:0000 - stage2 */
 
