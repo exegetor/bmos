@@ -1,17 +1,23 @@
 SRC_DIR=src
 REFS_DIR=reference
 
-.PHONY: all always clean bootloader kernel floppy run debug ref_fat test_all test_corrupt_floppy test_no_kernel test_c
+.PHONY: all always clean bootloader kernel floppy run debug ref_fat test_all test_corrupt_floppy test_no_kernel test_c gdb
 
 include build_scripts/config.mk
 
-all: always clean bootloader kernel ref_fat floppy
+all: always bootloader kernel floppy
 
 include build_scripts/toolchain.mk
 
+#
+# Always
+#
 always:
 	mkdir -p $(BUILD_DIR)
 
+#
+# Clean
+#
 clean:
 	$(MAKE) -C $(SRC_DIR)/bootloader/stage1 BUILD_DIR=$(abspath $(BUILD_DIR)) clean
 	$(MAKE) -C $(SRC_DIR)/bootloader/stage2 BUILD_DIR=$(abspath $(BUILD_DIR)) clean
@@ -22,6 +28,9 @@ clean:
 #$(BUILD_DIR)/bootloader.bin: always
 #	$(ASM) -l $(BUILD_DIR)/bootloader.lst $(SRC_DIR)/bootloader/bootloader.asm -f bin -o $(BUILD_DIR)/bootloader.bin
 
+#
+# Bootloader
+#
 bootloader: stage1 stage2
 
 stage1: $(BUILD_DIR)/stage1.bin
@@ -34,11 +43,17 @@ $(BUILD_DIR)/stage2.bin: always
 	@echo "\nBUILDING STAGE_2"
 	$(MAKE) -C $(SRC_DIR)/bootloader/stage2 BUILD_DIR=$(abspath $(BUILD_DIR))
 
+#
+# Kernel
+#
 kernel: $(BUILD_DIR)/kernel.bin
 $(BUILD_DIR)/kernel.bin: always
 	@echo "\nBUILDING KERNEL"
 	$(MAKE) -C $(SRC_DIR)/kernel BUILD_DIR=$(abspath $(BUILD_DIR))
 
+#
+# Floppy image
+#
 floppy: $(BUILD_DIR)/main_floppy.img
 $(BUILD_DIR)/main_floppy.img: bootloader kernel
 	dd if=/dev/zero of=$(BUILD_DIR)/main_floppy.img bs=512 count=2880
@@ -47,6 +62,9 @@ $(BUILD_DIR)/main_floppy.img: bootloader kernel
 	mcopy -i $(BUILD_DIR)/main_floppy.img $(BUILD_DIR)/stage2.bin "::stage2.bin"
 	mcopy -i $(BUILD_DIR)/main_floppy.img $(BUILD_DIR)/kernel.bin "::kernel.bin"
 	mcopy -i $(BUILD_DIR)/main_floppy.img $(REFS_DIR)/test.txt "::test.txt"
+	mmd -i $@ "::mydir"
+	mcopy -i $@ test.txt "::mydir/test.txt"
+	@echo "--> created: " $@
 
 run:
 	echo "testing MBOS in working configuration"
@@ -56,10 +74,21 @@ run:
 debug:
 	bochs -f bochs.config
 
+gdb:
+	gdb -x gdbscript.gdb
+
+
+#
+# Tools
+#
 ref_fat: $(BUILD_DIR)/refs/fat
 $(BUILD_DIR)/refs/fat: always $(REFS_DIR)/fat/fat.c
 	mkdir -p $(BUILD_DIR)/refs
 	$(CC) -g -o $(BUILD_DIR)/refs/fat $(REFS_DIR)/fat/fat.c
+
+#
+# Tests
+#
 
 test_all: always test_corrupt_floppy test_no_kernel test_c
 

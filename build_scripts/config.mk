@@ -6,15 +6,11 @@ export BUILD_DIR = $(abspath build)
 export ASM=nasm
 export ASMFLAGS=
 export CC=gcc
-export CFLAGS = -std=c99 -g
+export CFLAGS = -std=c99 -g -DDEBUG
 export CXX=g++
 export LD=gcc
 export LDFLAGS=
 export LIBS=
-
-# Watcom compiler
-CC16=/usr/bin/watcom/binl/wcc
-LD16=/usr/bin/watcom/binl/wlink
 
 #programs to run on the target machine
 export TARGET_ASM=nasm

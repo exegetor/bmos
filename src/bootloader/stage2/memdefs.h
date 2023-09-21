@@ -8,8 +8,8 @@
 #define MEMORY_MAX                   0x00080000
 
 /* 0000:0500 - 0001:0500 - FAT driver */
-#define MEMORY_FAT_ADDR  (void*)0x20000
-#define MEMORY_FAT_SIZE         0x10000
+#define MEMORY_FAT12_ADDR  (void*)0x20000
+#define MEMORY_FAT12_SIZE         0x10000
 
 /* 0002:0000 - 0003:0000 - stage2 */
 
@@ -18,6 +18,8 @@
 /*******************************************************************************
 ** 0x0008:0000 - 0x0009:ffff - extended BIOS data areaa
 ** 0x000A:0000 - 0x000C:7fff - Video
+**		0x000B:0000 - 0x000B:7fff - monochrome video
+**		0x000B:8000 - ?             color video	
 ** 0x000C:8000 - 0x000f:ffff - BIOS
 */
 

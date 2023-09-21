@@ -20,6 +20,9 @@ const uint8_t DEFAULT_COLOR = 0x07;
 
 const char g_HexChars[] = "0123456789abcdef";
 
+#define COLOR_DEFAULT 7
+
+
 /*------------------------------------------------------------------------------
 ** FORWARD DECLARATIONS
 */
@@ -32,133 +35,171 @@ void setcursor(int x, int y);
 /*----------------------------------------------------------------------------*/
 void clrscr()
 {
-    for (int y = 0; y < SCREEN_HEIGHT; y++) {
-        for (int x = 0; x < SCREEN_WIDTH; x++) {
-            putchr(x, y, ' ');
-            putcolor(x, y, DEFAULT_COLOR);
-        }
-    }
-    g_ScreenPos_X = 0;
-    g_ScreenPos_Y = 0;
-    setcursor(0, 0);
+	for (int y = 0; y < SCREEN_HEIGHT; y++) {
+		for (int x = 0; x < SCREEN_WIDTH; x++) {
+			putchr(x, y, ' ');
+//			putcolor(x, y, DEFAULT_COLOR);
+			putcolor(x, y, COLOR_DEFAULT);
+		}
+	}
+	g_ScreenPos_X = 0;
+	g_ScreenPos_Y = 0;
+	setcursor(0, 0);
 }
 
 /*----------------------------------------------------------------------------*/
 void scrollback(int lines)
 {
-    for (int y = lines; y < SCREEN_HEIGHT; y++)
-        for (int x = 0; x < SCREEN_WIDTH; x++) {
-            putchr(x, y - lines, (getchr(x, y)));
-            putcolor(x, y - lines, (getcolor(x, y)));
-        }
-    for (int y = SCREEN_HEIGHT - lines; y < SCREEN_HEIGHT; y++)    
-        for (int x = 0; x < SCREEN_WIDTH; x++) {
-            putchr(x, y, ' ');
-            putcolor(x, y, DEFAULT_COLOR);
-        }
-    g_ScreenPos_Y -= lines;    
+	for (int y = lines; y < SCREEN_HEIGHT; y++)
+		for (int x = 0; x < SCREEN_WIDTH; x++) {
+			putchr(x, y - lines, (getchr(x, y)));
+			putcolor(x, y - lines, (getcolor(x, y)));
+		}
+	for (int y = SCREEN_HEIGHT - lines; y < SCREEN_HEIGHT; y++)
+		for (int x = 0; x < SCREEN_WIDTH; x++) {
+			putchr(x, y, ' ');
+			putcolor(x, y, DEFAULT_COLOR);
+		}
+	g_ScreenPos_Y -= lines;
 }
 
 /*----------------------------------------------------------------------------*/
-void putchr(int x, int y, const char c)
+void putchr(int x, int y, char c)
 {
-    g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)] = c;
+	g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)] = c;
 }
 
 /*----------------------------------------------------------------------------*/
 char getchr(int x, int y)
 {
-    return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)];
+	return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)];
 }
 
 /*----------------------------------------------------------------------------*/
 void putcolor(int x, int y, uint8_t color)
 {
-    g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1] = color;
+	g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1] = color;
 }
 
 /*----------------------------------------------------------------------------*/
 uint8_t getcolor(int x, int y)
 {
-    return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1];
+	return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1];
 }
 
 /*----------------------------------------------------------------------------*/
 void putc(char c)
 {
-    switch (c) {
-        case '\n':
-            g_ScreenPos_Y++;
-            // fall through to case '\r'...
-        case '\r':
-            g_ScreenPos_X = 0;
-            break;
-        case '\t':
-            for (int i = 0; i < 4 - (g_ScreenPos_X % TAB_STOPS); i++)
-                putc(' ');
-            break;
-        default:
-            putchr(g_ScreenPos_X, g_ScreenPos_Y, c);
-            g_ScreenPos_X++;
-            break;    
-    }
-    if (g_ScreenPos_X >= SCREEN_WIDTH) {
-        g_ScreenPos_Y++;
-        g_ScreenPos_X = 0;
-    }
-    if (g_ScreenPos_Y >= SCREEN_HEIGHT)
-        scrollback(1);
-    setcursor(g_ScreenPos_X, g_ScreenPos_Y);
+	switch (c) {
+		case '\n':
+			g_ScreenPos_Y++;
+			// fall through to case '\r'...
+		case '\r':
+			g_ScreenPos_X = 0;
+			break;
+		case '\t':
+			for (int i = 0; i < 4 - (g_ScreenPos_X % TAB_STOPS); i++)
+				putc(' ');
+			break;
+		default:
+			putchr(g_ScreenPos_X, g_ScreenPos_Y, c);
+			g_ScreenPos_X++;
+			break;
+	}
+	if (g_ScreenPos_X >= SCREEN_WIDTH) {
+		g_ScreenPos_Y++;
+		g_ScreenPos_X = 0;
+	}
+	if (g_ScreenPos_Y >= SCREEN_HEIGHT)
+		scrollback(1);
+	setcursor(g_ScreenPos_X, g_ScreenPos_Y);
 }/* putc() */
+
+/*----------------------------------------------------------------------------*/
+void putc_color(char c, uint8_t color)
+{
+	switch (c) {
+		case '\n':
+			g_ScreenPos_Y++;
+			// fall through to case '\r'...
+		case '\r':
+			g_ScreenPos_X = 0;
+			break;
+		case '\t':
+			for (int i = 0; i < 4 - (g_ScreenPos_X % TAB_STOPS); i++)
+				putc(' ');  // recursive call will set new screen position
+			break;
+		default:
+			putchr(g_ScreenPos_X, g_ScreenPos_Y, c);
+			putcolor(g_ScreenPos_X, g_ScreenPos_Y, color);
+			g_ScreenPos_X++;
+			break;    
+	}
+	if (g_ScreenPos_X >= SCREEN_WIDTH) {
+		g_ScreenPos_Y++;
+		g_ScreenPos_X = 0;
+	}
+	if (g_ScreenPos_Y >= SCREEN_HEIGHT)
+		scrollback(1);
+	setcursor(g_ScreenPos_X, g_ScreenPos_Y);
+}/* putc_color() */
 
 /*----------------------------------------------------------------------------*/
 void puts(const char* str)
 {
-    while (*str) {
-        putc(*str);
-        str++;
-    }
+	while (*str) {
+		putc(*str);
+		str++;
+	}
 }
 
+/*----------------------------------------------------------------------------*/
+void puts_color(const char* str, uint8_t color)
+{
+	while (*str) {
+		putc_color(*str, color);
+		str++;
+	}
+}
 
 /*----------------------------------------------------------------------------*/
 void setcursor(int x, int y)
 {
-    // see https://www.wiki.osdev.org/VGA_Hardware
-    int pos = y * SCREEN_WIDTH + x;
-    x86_outb(0x3D4, 0x0F);
-    x86_outb(0x3D5, (uint8_t)(pos & 0xFF));     // why AND a byte with FF?
-    x86_outb(0x3D4, 0x0E);
-    x86_outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));  // ^this
+	// see https://www.wiki.osdev.org/VGA_Hardware
+	int pos = y * SCREEN_WIDTH + x;
+	x86_outb(0x3D4, 0x0F);
+	x86_outb(0x3D5, (uint8_t)(pos & 0xFF));     // why AND a byte with FF?
+	x86_outb(0x3D4, 0x0E);
+	x86_outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));  // ^this
 }
 
 /*----------------------------------------------------------------------------*/
 
 void printf_unsigned(unsigned long long number, int radix)
 {
-    char buffer[32];
-    int  pos = 0;
+	char buffer[32];
+	int  pos = 0;
 
-    /* convert number to ASCII */
-    do {
-        unsigned long long remainder = number % radix;
-        number /= radix;
-        buffer[pos++] = g_HexChars[remainder];
-    } while (number > 0);
+	/* convert number to ASCII */
+	do {
+		unsigned long long remainder = number % radix;
+		number /= radix;
+		buffer[pos++] = g_HexChars[remainder];
+	} while (number > 0);
 
-    /* print number in reverse order */
-    while (--pos >= 0)
-        putc(buffer[pos]);
+	/* print number in reverse order */
+	while (--pos >= 0)
+		putc(buffer[pos]);
 }
 
 /*----------------------------------------------------------------------------*/
 void printf_signed(long long number, int radix)
 {
-    if (number < 0) {
-        putc('-');
-        printf_unsigned(-number, radix);
-    }
-    else printf_unsigned(number, radix);
+	if (number < 0) {
+		putc('-');
+		printf_unsigned(-number, radix);
+	}
+	else printf_unsigned(number, radix);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -176,151 +217,164 @@ void printf_signed(long long number, int radix)
 
 void printf(const char* fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
+	va_list args;
+	va_start(args, fmt);
 
-    int  state = PRINTF_STATE_NORMAL;
-    int  length = PRINTF_LENGTH_DEFAULT;
-    int  radix = 10;
-    bool sign = false;
-    bool numerical = false;
+	int  state = PRINTF_STATE_NORMAL;
+	int  length = PRINTF_LENGTH_DEFAULT;
+	int  radix = 10;
+	bool sign = false;
+	bool numerical = false;
 
-    while (*fmt) {
-        switch (state) {
-            case PRINTF_STATE_NORMAL:
-                switch (*fmt) {
-                    case '%':   state = PRINTF_STATE_LENGTH;
-                                break;
-                    default:    putc(*fmt);
-                                break;
+	while (*fmt) {
+		switch (state) {
+			case PRINTF_STATE_NORMAL:
+				switch (*fmt) {
+					case '%':
+						state = PRINTF_STATE_LENGTH;
+						break;
+					default:
+						putc(*fmt);
+						break;
+				}
+				break;
+			case PRINTF_STATE_LENGTH:
+				switch(*fmt) {
+					case 'h':
+						length = PRINTF_LENGTH_SHORT;
+						state = PRINTF_STATE_LENGTH_SHORT;
+						break;
+					case 'l':
+						length = PRINTF_LENGTH_LONG;
+						state = PRINTF_STATE_LENGTH_LONG;
+						break;
+					default:
+						goto PRINTF_STATE_SPEC_;
                 }
-                break;
-            case PRINTF_STATE_LENGTH:
-                switch(*fmt) {
-                    case 'h':   length = PRINTF_LENGTH_SHORT;
-                                state = PRINTF_STATE_LENGTH_SHORT;
-                                break;
-                    case 'l':   length = PRINTF_LENGTH_LONG;
-                                state = PRINTF_STATE_LENGTH_LONG;
-                                break;
-                    default:    goto PRINTF_STATE_SPEC_;
-                }
-                break;
-            case PRINTF_STATE_LENGTH_SHORT:
-                if (*fmt == 'h') {
-                    length = PRINTF_LENGTH_SHORT_SHORT;
-                    state = PRINTF_STATE_SPEC;
-                }
-                else {
-                    goto PRINTF_STATE_SPEC_;
-                }
-                break;
-            case PRINTF_STATE_LENGTH_LONG:
-                if (*fmt == 'l') {
-                    length = PRINTF_LENGTH_LONG_LONG;
-                    state = PRINTF_STATE_SPEC;
-                }
-                else
-                    goto PRINTF_STATE_SPEC_;
-                break;
-            case PRINTF_STATE_SPEC:
-            PRINTF_STATE_SPEC_:
-                switch (*fmt) {
-                    case 'c':   putc((char)va_arg(args, int));
-                                break;
-                    case 's':   puts(va_arg(args, const char*));
-                                break;
-                    case '%':   putc('%');
-                                break;
-                    case 'd':
-                    case 'i':   radix = 10; 
-                                sign = true;
-                                numerical = true;
-                                break;
-                    case 'u':   radix = 10; 
-                                sign = false;
-                                numerical = true;
-                                break;
-                    case 'X':
-                    case 'x':
-                    case 'p':   radix = 16; 
-                                sign = false;
-                                numerical = true;
-                                break;
-                    case 'o':   radix = 8; 
-                                sign = false;
-                                numerical = true;
-                                break;
-                    default:    break; /* ignore any invalid specifiers */
-                }
+				break;
+			case PRINTF_STATE_LENGTH_SHORT:
+				if (*fmt == 'h') {
+					length = PRINTF_LENGTH_SHORT_SHORT;
+					state = PRINTF_STATE_SPEC;
+				}
+				else
+					goto PRINTF_STATE_SPEC_;
+				break;
+			case PRINTF_STATE_LENGTH_LONG:
+				if (*fmt == 'l') {
+					length = PRINTF_LENGTH_LONG_LONG;
+					state = PRINTF_STATE_SPEC;
+				}
+				else
+					goto PRINTF_STATE_SPEC_;
+				break;
+			case PRINTF_STATE_SPEC:
+			PRINTF_STATE_SPEC_:
+				switch (*fmt) {
+					case 'c':
+						putc((char)va_arg(args, int));
+						break;
+					case 's':
+						puts(va_arg(args, const char*));
+						break;
+					case '%':
+						putc('%');
+						break;
+					case 'd':
+					case 'i':
+						radix = 10;
+						sign = true;
+						numerical = true;
+						break;
+					case 'u':
+						radix = 10;
+						sign = false;
+						numerical = true;
+						break;
+					case 'X':
+					case 'x':
+					case 'p':
+						radix = 16; 
+						sign = false;
+						numerical = true;
+						break;
+                    case 'o':
+						radix = 8;
+						sign = false;
+						numerical = true;
+						break;
+					default:
+						break; /* ignore any invalid specifiers */
+				}
 
-                if (numerical) {
-                    if (sign) {
-                        switch (length) {
-                        case PRINTF_LENGTH_DEFAULT:
-                        case PRINTF_LENGTH_SHORT:
-                        case PRINTF_LENGTH_SHORT_SHORT:
-                            printf_signed(va_arg(args, int), radix);
-                            break;
-                        case PRINTF_LENGTH_LONG:
-                            printf_signed(va_arg(args, long), radix);
-                            break;
-                        case PRINTF_LENGTH_LONG_LONG:
-                            printf_signed(va_arg(args, long long), radix);
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                    else {
-                        switch (length) {
-                        case PRINTF_LENGTH_DEFAULT:
-                        case PRINTF_LENGTH_SHORT:
-                        case PRINTF_LENGTH_SHORT_SHORT:
-                            printf_unsigned(va_arg(args, unsigned int), radix);
-                            break;
-                        case PRINTF_LENGTH_LONG:
-                            printf_unsigned(va_arg(args, unsigned long), radix);
-                            break;
-                        case PRINTF_LENGTH_LONG_LONG:
-                            printf_unsigned(va_arg(args, unsigned long long), radix);
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                }
-                /* reset state */
-                state = PRINTF_STATE_NORMAL;
-                length = PRINTF_LENGTH_DEFAULT;
-                radix = 10;
-                sign = false;
-                break;
-        }/* switch(state) */
-        fmt++;
-    }
-    va_end(args);
+				if (numerical) {
+					if (sign) {
+						switch (length) {
+							case PRINTF_LENGTH_DEFAULT:
+							case PRINTF_LENGTH_SHORT:
+							case PRINTF_LENGTH_SHORT_SHORT:
+								printf_signed(va_arg(args, int), radix);
+								break;
+							case PRINTF_LENGTH_LONG:
+								printf_signed(va_arg(args, long), radix);
+								break;
+							case PRINTF_LENGTH_LONG_LONG:
+								printf_signed(va_arg(args, long long), radix);
+								break;
+							default:
+								break;
+						}
+					}
+					else {
+						switch (length) {
+							case PRINTF_LENGTH_DEFAULT:
+							case PRINTF_LENGTH_SHORT:
+							case PRINTF_LENGTH_SHORT_SHORT:
+								printf_unsigned(va_arg(args, unsigned int), radix);
+								break;
+							case PRINTF_LENGTH_LONG:
+								printf_unsigned(va_arg(args, unsigned long), radix);
+								break;
+							case PRINTF_LENGTH_LONG_LONG:
+								printf_unsigned(va_arg(args, unsigned long long), radix);
+								break;
+							default:
+								break;
+						}
+					}/* if(sign)/else */
+				}/* if(nuerical) */
+				/* reset state */
+				state = PRINTF_STATE_NORMAL;
+				length = PRINTF_LENGTH_DEFAULT;
+				radix = 10;
+				sign = false;
+				numerical = false;
+				break;
+		}/* switch(state) */
+		fmt++;
+	}
+	va_end(args);
 }/* printf() */
 
 /*----------------------------------------------------------------------------*/
 void print_buffer(const char* msg, const void* buffer, uint32_t count)
 {
-    const uint8_t* u8Buffer = (const uint8_t*)buffer;
-    uint8_t byte;
-    uint8_t hi_nibble;
-    uint8_t lo_nibble;
+	const uint8_t* u8Buffer = (const uint8_t*)buffer;
+	uint8_t byte;
+	uint8_t hi_nibble;
+	uint8_t lo_nibble;
 
-    puts(msg);
-    for (uint32_t i = 0; i < count; i++) {
-        if (i%32 == 0) {
-            putc('\r');
-            putc('\n');
-        }
-        byte = u8Buffer[i];
-        hi_nibble = byte >> 4;
-        putc(g_HexChars[hi_nibble]);
-        lo_nibble = byte & 0x0F;
-        putc(g_HexChars[lo_nibble]);
-    }
-    puts("\n");
+	puts(msg);
+	for (uint32_t i = 0; i < count; i++) {
+		if (i%32 == 0) {
+			putc('\r');
+			putc('\n');
+		}
+		byte = u8Buffer[i];
+		hi_nibble = byte >> 4;
+		putc(g_HexChars[hi_nibble]);
+		lo_nibble = byte & 0x0F;
+		putc(g_HexChars[lo_nibble]);
+	}
+	puts("\n");
 }
