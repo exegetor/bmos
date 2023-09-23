@@ -2,8 +2,11 @@
 #include <stddef.h>
 #include "string.h"
 
+
 /*----------------------------------------------------------------------------*/
-const char* strchr(const char* str, char chr)
+const char*
+strchr
+(const char* str, char chr)
 {
 	if (str == NULL)
 		return NULL;
@@ -16,8 +19,11 @@ const char* strchr(const char* str, char chr)
 	return NULL;
 }
 
+
 /*----------------------------------------------------------------------------*/
-char* strcpy(char* dst, const char* src)
+char*
+strcpy
+(char* dst, const char* src)
 {
 	char* origDst = dst;
 
@@ -36,8 +42,11 @@ char* strcpy(char* dst, const char* src)
 	return origDst;
 }
 
+
 /*----------------------------------------------------------------------------*/
-unsigned strlen(const char* str)
+unsigned
+strlen
+(const char* str)
 {
 	unsigned len = 0;
 	while (*str) {

@@ -4,8 +4,8 @@
 #include <stdbool.h>
 
 typedef struct {
-	uint8_t id;
-	uint8_t driveType;
+	uint8_t  id;
+	uint8_t  driveType;
 	uint16_t cylinders;
 	uint16_t heads;
 	uint16_t sectors;

@@ -4,8 +4,10 @@
 #include "stdio.h"
 #include "x86.h"
 
+
 /*----------------------------------------------------------------------------*/
 #define TAB_STOPS 4
+
 
 /*----------------------------------------------------------------------------*/
 uint8_t* g_ScreenBuffer = (uint8_t*)0xB8000;
@@ -32,13 +34,14 @@ void putcolor(int x, int y, uint8_t color);
 uint8_t getcolor(int x, int y);
 void setcursor(int x, int y);
 
+
 /*----------------------------------------------------------------------------*/
-void clrscr()
+void
+clrscr()
 {
 	for (int y = 0; y < SCREEN_HEIGHT; y++) {
 		for (int x = 0; x < SCREEN_WIDTH; x++) {
 			putchr(x, y, ' ');
-//			putcolor(x, y, DEFAULT_COLOR);
 			putcolor(x, y, COLOR_DEFAULT);
 		}
 	}
@@ -47,8 +50,10 @@ void clrscr()
 	setcursor(0, 0);
 }
 
+
 /*----------------------------------------------------------------------------*/
-void scrollback(int lines)
+void
+scrollback(int lines)
 {
 	for (int y = lines; y < SCREEN_HEIGHT; y++)
 		for (int x = 0; x < SCREEN_WIDTH; x++) {
@@ -58,37 +63,47 @@ void scrollback(int lines)
 	for (int y = SCREEN_HEIGHT - lines; y < SCREEN_HEIGHT; y++)
 		for (int x = 0; x < SCREEN_WIDTH; x++) {
 			putchr(x, y, ' ');
-			putcolor(x, y, DEFAULT_COLOR);
+			putcolor(x, y, COLOR_DEFAULT);
 		}
 	g_ScreenPos_Y -= lines;
 }
 
+
 /*----------------------------------------------------------------------------*/
-void putchr(int x, int y, char c)
+void
+putchr(int x, int y, char c)
 {
 	g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)] = c;
 }
 
+
 /*----------------------------------------------------------------------------*/
-char getchr(int x, int y)
+char
+getchr(int x, int y)
 {
 	return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x)];
 }
 
+
 /*----------------------------------------------------------------------------*/
-void putcolor(int x, int y, uint8_t color)
+void
+putcolor(int x, int y, uint8_t color)
 {
 	g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1] = color;
 }
 
+
 /*----------------------------------------------------------------------------*/
-uint8_t getcolor(int x, int y)
+uint8_t
+getcolor(int x, int y)
 {
 	return g_ScreenBuffer[2 * (y * SCREEN_WIDTH + x) + 1];
 }
 
+
 /*----------------------------------------------------------------------------*/
-void putc(char c)
+void
+putc(char c)
 {
 	switch (c) {
 		case '\n':
@@ -115,8 +130,10 @@ void putc(char c)
 	setcursor(g_ScreenPos_X, g_ScreenPos_Y);
 }/* putc() */
 
+
 /*----------------------------------------------------------------------------*/
-void putc_color(char c, uint8_t color)
+void
+putc_color(char c, uint8_t color)
 {
 	switch (c) {
 		case '\n':
@@ -144,8 +161,10 @@ void putc_color(char c, uint8_t color)
 	setcursor(g_ScreenPos_X, g_ScreenPos_Y);
 }/* putc_color() */
 
+
 /*----------------------------------------------------------------------------*/
-void puts(const char* str)
+void
+puts(const char* str)
 {
 	while (*str) {
 		putc(*str);
@@ -153,8 +172,10 @@ void puts(const char* str)
 	}
 }
 
+
 /*----------------------------------------------------------------------------*/
-void puts_color(const char* str, uint8_t color)
+void
+puts_color(const char* str, uint8_t color)
 {
 	while (*str) {
 		putc_color(*str, color);
@@ -162,8 +183,10 @@ void puts_color(const char* str, uint8_t color)
 	}
 }
 
+
 /*----------------------------------------------------------------------------*/
-void setcursor(int x, int y)
+void
+setcursor(int x, int y)
 {
 	// see https://www.wiki.osdev.org/VGA_Hardware
 	int pos = y * SCREEN_WIDTH + x;
@@ -173,9 +196,10 @@ void setcursor(int x, int y)
 	x86_outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));  // ^this
 }
 
-/*----------------------------------------------------------------------------*/
 
-void printf_unsigned(unsigned long long number, int radix)
+/*----------------------------------------------------------------------------*/
+void
+printf_unsigned(unsigned long long number, int radix)
 {
 	char buffer[32];
 	int  pos = 0;
@@ -193,7 +217,8 @@ void printf_unsigned(unsigned long long number, int radix)
 }
 
 /*----------------------------------------------------------------------------*/
-void printf_signed(long long number, int radix)
+void
+printf_signed(long long number, int radix)
 {
 	if (number < 0) {
 		putc('-');
@@ -215,7 +240,9 @@ void printf_signed(long long number, int radix)
 #define PRINTF_LENGTH_LONG         3
 #define PRINTF_LENGTH_LONG_LONG    4
 
-void printf(const char* fmt, ...)
+void
+printf
+(const char* fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -356,8 +383,11 @@ void printf(const char* fmt, ...)
 	va_end(args);
 }/* printf() */
 
+
 /*----------------------------------------------------------------------------*/
-void print_buffer(const char* msg, const void* buffer, uint32_t count)
+void
+print_buffer
+(const char* msg, const void* buffer, uint32_t count)
 {
 	const uint8_t* u8Buffer = (const uint8_t*)buffer;
 	uint8_t byte;

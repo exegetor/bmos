@@ -7,13 +7,14 @@
 #include "memory.h"
 #include "ctype.h"
 #include "minmax.h"
+#include "logging.h"
 #include "fat12.h"
 
-#define SECTOR_SIZE    512
-#define MAX_PATH_SIZE  256
-#define MAX_FILE_HANDLES 10
-#define ROOT_DIRECTORY_HANDLE  -1
-#define FINAL_CLUSTER_MARK 0xFF8
+#define SECTOR_SIZE             512
+#define MAX_PATH_SIZE           256
+#define MAX_FILE_HANDLES         10
+#define ROOT_DIRECTORY_HANDLE    -1
+#define FINAL_CLUSTER_MARK    0xFF8
 
 typedef struct
 {
@@ -67,6 +68,7 @@ static FAT12_Data* g_BS_Data;         // points to MEMORY_FAT_ADDR
 static uint8_t*    g_FAT = NULL;      // points just after struct above ^ this
 static uint32_t    g_DataSectionLBA;
 
+
 /*------------------------------------------------------------------------------
 ** PRIVATE FUNCTIONS / FORWARD DECLARATIONS
 */
@@ -83,14 +85,13 @@ bool
 FAT12_initialize
 (DISK* disk)
 {
-#ifdef DEBUG
-	printf("%s()\r\n", __FUNCTION__);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
+
 	g_BS_Data = (FAT12_Data*)MEMORY_FAT12_ADDR;
 
 	/* read boot sector */
 	if (!FAT12_readBootSector(disk)) {
-		printf("FAT: read boot sector failed\r\n");
+		ERROR("FAT: read boot sector failed\r\n");
 		return false;
 	}
 
@@ -99,11 +100,11 @@ FAT12_initialize
 	uint32_t FATSize = g_BS_Data->BS.BS_datablock.bytesPerSector 
 	                 * g_BS_Data->BS.BS_datablock.sectorsPerFAT;
 	if (sizeof(FAT12_Data) + FATSize >= MEMORY_FAT12_SIZE) {
-		printf("FAT: not enough memory to read FAT! Required %lu, only have %u\r\n", sizeof(FAT12_Data) + FATSize, MEMORY_FAT12_SIZE);
+		ERROR("FAT: not enough memory to read FAT! Required %lu, only have %u\r\n", sizeof(FAT12_Data) + FATSize, MEMORY_FAT12_SIZE);
 		return false;
 	}
 	if (!FAT12_readAllocationTable(disk)) {
-		printf("FAT: read FAT failed\r\n");
+		ERROR("FAT: read FAT failed\r\n");
 		return false;
 	}
 
@@ -116,11 +117,11 @@ FAT12_initialize
     
 /*
 	if (sizeof(FAT_Data) + FATSize + rootDirSize >= MEMORY_FAT_SIZE) {
-		printf("FAT: not enough memory to read root directory! Required %lu, only have %u\r\n", sizeof(FAT_Data) + FATSize + rootDirSize, MEMORY_FAT_SIZE);
+		ERROR("FAT: not enough memory to read root directory! Required %lu, only have %u\r\n", sizeof(FAT_Data) + FATSize + rootDirSize, MEMORY_FAT_SIZE);
 		return false;
 	}
 	if (!FAT_ReadRootDirectory(disk)) {
-		printf("FAT: read root directory failed\r\n");
+		ERROR("FAT: read root directory failed\r\n");
 		return false;
 	}
 */
@@ -136,7 +137,7 @@ FAT12_initialize
 	g_BS_Data->rootDirectory.currentSectorInCluster = 0;
 
 	if (!DISK_readSectors(disk, rootDirLBA, 1, g_BS_Data->rootDirectory.buffer)) {
-		printf("FAT: read root directory failed\r\n");
+		ERROR("FAT: read root directory failed\r\n");
 		return false;
 	}
 
@@ -146,54 +147,55 @@ FAT12_initialize
 	g_DataSectionLBA = rootDirLBA + rootDirSectors;
 
 	/* reset opened files */
-	for (int i = 0; i < MAX_FILE_HANDLES; i++)
+	for (int i = 0; i < MAX_FILE_HANDLES; i++) {
 		g_BS_Data->openedFiles[i].opened = false;
+	}
 	return true;
 }/* FAT12_initialize() */
+
 
 /*----------------------------------------------------------------------------*/
 bool
 FAT12_readBootSector
 (DISK* disk)
 {
-#ifdef DEBUG
-	printf("%s()\r\n", __FUNCTION__);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
+
 	return DISK_readSectors(disk,
 	                        0,
 	                        1,
 	                        g_BS_Data->BS.bootSectorBytes);
-}
+}/* FAT12_readBootSector() */
+
 
 /*----------------------------------------------------------------------------*/
 bool
 FAT12_readAllocationTable
 (DISK* disk)
 {
-#ifdef DEBUG
-	printf("%s()\r\n", __FUNCTION__);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
+
 	return DISK_readSectors(disk,
 	                        g_BS_Data->BS.BS_datablock.reservedSectors,
 	                        g_BS_Data->BS.BS_datablock.sectorsPerFAT,
 	                        g_FAT);
-}
+}/* FAT12_readAllocationTable */
+
 
 /*----------------------------------------------------------------------------*/
 FAT12_file_descriptor*
 FAT12_fopen
 (DISK* disk, const char* path)
 {
-#ifdef DEBUG
-	printf("%s()\r\n", __FUNCTION__);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
 
 	char name[MAX_PATH_SIZE];
 	memset(name, ' ', MAX_PATH_SIZE);
 
 	/* ignore leading slash */
-	if (path[0] == '/')
+	if (path[0] == '/') {
 		path++;
+	}
 
 	FAT12_file_descriptor* current = &g_BS_Data->rootDirectory.fd;
 
@@ -220,14 +222,14 @@ FAT12_fopen
 			FAT12_fclose(current);
 			/* check is directory */
 			if (!isLast && ((entry.attributes & FAT12_ATTRIBUTE_DIRECTORY) == 0)) {
-				printf("FAT: %s not a directory\r\n", name);
+				ERROR("FAT: %s not a directory\r\n", name);
 				return NULL;
 			}
 			/* open new directory entry */
 			current = FAT12_openFATEntry(disk, &entry);
 		}
 		else {
-			printf("FAT: %s not found\r\n", name);
+			ERROR("FAT: %s not found\r\n", name);
 			FAT12_fclose(current);
 			return NULL;
 		}
@@ -235,14 +237,13 @@ FAT12_fopen
 	return current;
 }/* FAT12_fopen() */
 
+
 /*----------------------------------------------------------------------------*/
 bool
 FAT12_findFile
 (DISK* disk, FAT12_file_descriptor* file, const char* name, FAT12_file_datablock* entryOut)
 {
-#ifdef DEBUG
-	printf("%s(%s)\r\n", __FUNCTION__, name);
-#endif
+	TRACE("%s(%s)\r\n", __FUNCTION__, name);
 
 	char FATName[12];
 	FAT12_file_datablock entry;
@@ -252,10 +253,12 @@ FAT12_findFile
 	FATName[11] = '\0';
 	/* TODO: fix this.  won't handle more than one dot in filename */
 	const char* ext = strchr(name, '.');
-	if (ext == NULL)
+	if (ext == NULL) {
 		ext = name + 11;
-	for (int i = 0; i < 8 && name[i] && name + i < ext; i++)
+	}
+	for (int i = 0; i < 8 && name[i] && name + i < ext; i++) {
 		FATName[i] = toupper(name[i]);
+	}
 	if (ext != name + 11) {
 		for (int i = 0; i < 3 && ext[i + 1]; i++)
 			FATName[i + 8] = toupper(ext[i + 1]);
@@ -265,32 +268,29 @@ FAT12_findFile
 //		printf("FATName %s, name %s, entry.name %s\r\n",FATName, name, entry.name);
 		if (memcmp(FATName, entry.name, 11) == 0) {
 			*entryOut = entry;
-		#ifdef DEBUG
-			printf("FAT12_findFile(): found file  %s\r\n", name);
-		#endif
+			INFO("FAT12_findFile(): found file  %s\r\n", name);
 			return true;
 		}
 	}
-#ifdef DEBUG
-	printf("FAT12_findFile(): File not found: %s\r\n", name);
-#endif
+	WARN("FAT12_findFile(): File not found: %s\r\n", name);
 	return false;
 }/* FAT12_findFile() */
+
 
 /*----------------------------------------------------------------------------*/
 bool
 FAT12_readEntry
 (DISK* disk, FAT12_file_descriptor* file, FAT12_file_datablock* dirEntry)
 {
-#ifdef DEBUG
-//	printf("%s(%s)\t", __FUNCTION__, dirEntry->name);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
+
 	return FAT12_readFile(disk,
 	                      file,
 	                      sizeof(FAT12_file_datablock),
 	                      dirEntry)
 	       == sizeof(FAT12_file_datablock);
 }
+
 
 /*------------------------------------------------------------------------------
 ** FAT12_readFile()
@@ -303,9 +303,7 @@ uint32_t
 FAT12_readFile
 (DISK* disk, FAT12_file_descriptor* file, uint32_t byteCount, void* dataOut)
 {
-//#ifdef DEBUG
-//	printf("%s()\r\n", __FUNCTION__);
-//#endif
+	TRACE("%s()\r\n", __FUNCTION__);
 
 	uint8_t* u8dataOut = (uint8_t*)dataOut;
 
@@ -315,8 +313,9 @@ FAT12_readFile
 	                         : &g_BS_Data->openedFiles[file->handle];
 
     /* don't read past the end of the file */
-	if (!fileData->fd.isDirectory || (fileData->fd.isDirectory && fileData->fd.size != 0))
+	if (!fileData->fd.isDirectory || (fileData->fd.isDirectory && fileData->fd.size != 0)) {
 		byteCount = min(byteCount, fileData->fd.size - fileData->fd.position);
+	}
 
 	while (byteCount > 0) {
 		uint32_t leftInBuffer = SECTOR_SIZE - (fileData->fd.position % SECTOR_SIZE);
@@ -336,7 +335,7 @@ FAT12_readFile
 				                      fileData->currentCluster,
 				                      1,
 				                      fileData->buffer)) {
-					printf("FAT: read error!\r\n");
+					ERROR("FAT: read error!\r\n");
 					break;
 //					goto fail;
 				}
@@ -357,7 +356,7 @@ FAT12_readFile
 				                      FAT12_clusterToLBA(fileData->currentCluster) + fileData->currentSectorInCluster,
 				                      1,
 				                      fileData->buffer)) {
-					printf("FAT: read error!\r\n");
+					ERROR("FAT: read error!\r\n");
 					break;
 				}
 			}/* if/else */
@@ -368,14 +367,13 @@ fail:
 	return 0;
 }/* FAT12_readFile() */
 
+
 /*----------------------------------------------------------------------------*/
 FAT12_file_descriptor*
 FAT12_openFATEntry
 (DISK* disk, FAT12_file_datablock* entry)
 {
-#ifdef DEBUG
-	printf("%s()\r\n", __FUNCTION__);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
 
 	/* find empty handle */
 	int handle = -1;
@@ -384,12 +382,12 @@ FAT12_openFATEntry
 			handle = i;
     }
 	if (handle < 0) {
-		printf("FAT: out of file handles\r\n");
+		ERROR("FAT: out of file handles\r\n");
 		return false;
 	}
 	else { 
 	#ifdef DEBUG
-		printf ("assigned handle %u\r\n", handle);
+		DEBUG("assigned handle %u\r\n", handle);
 	#endif
 	}
 
@@ -404,21 +402,21 @@ FAT12_openFATEntry
 	fileData->currentSectorInCluster = 0;
 
 	if (!DISK_readSectors(disk, FAT12_clusterToLBA(fileData->currentCluster), 1, fileData->buffer)) {
-		printf("FAT: read error\r\n");
+		ERROR("FAT: read error\r\n");
 		return false;
 	}
 	fileData->opened = true;
 	return &fileData->fd;
 }/* FAT12_openFATEntry() */
 
+
 /*----------------------------------------------------------------------------*/
 void
 FAT12_fclose
 (FAT12_file_descriptor* file)
 {
-#ifdef DEBUG
-	printf("%s()\r\n", __FUNCTION__);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
+
 	if (file->handle == ROOT_DIRECTORY_HANDLE) {
 		file->position = 0;
 		g_BS_Data->rootDirectory.currentCluster = g_BS_Data->rootDirectory.firstCluster;
@@ -428,37 +426,37 @@ FAT12_fclose
 	}
 }/* FAT12_fclose */
 
+
 /*----------------------------------------------------------------------------*/
 uint32_t
 FAT12_nextCluster
 (uint32_t currentCluster)
 {
-#ifdef DEBUG
-	printf("%s()\r\n", __FUNCTION__);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
+
 	uint32_t FATIndex = currentCluster * 3 / 2;
-	if (currentCluster % 2 == 0)
+	if (currentCluster % 2 == 0) {
 		return (*(uint16_t*)(g_FAT + FATIndex)) & 0x0FFF;
-	else
+	}
+	else {
 		return (*(uint16_t*)(g_FAT + FATIndex)) >> 4;
-}
+	}
+}/* FAT12_nextCluster */
+
 
 /*----------------------------------------------------------------------------*/
 uint32_t
 FAT12_clusterToLBA
 (uint32_t cluster)
 {
-#ifdef DEBUG
-	printf("%s()\r\n", __FUNCTION__);
-#endif
+	TRACE("%s()\r\n", __FUNCTION__);
 
-	uint32_t lba;
+	uint32_t lba = g_DataSectionLBA
+	             + (g_BS_Data->BS.BS_datablock.sectorsPerCluster * (cluster - 2));
 
-	printf("    disk data area starts at cluster %u\r\n", g_DataSectionLBA);
-	printf("    calculating LBA for cluster %u\r\n", cluster);
-	lba = g_DataSectionLBA
-	    + (g_BS_Data->BS.BS_datablock.sectorsPerCluster * (cluster - 2));
+	INFO("    disk data area starts at cluster %u\r\n", g_DataSectionLBA);
+	INFO("    calculating LBA for cluster %u\r\n", cluster);
+	INFO("    LBA = %u\r\n", lba);
 
-	printf("    LBA = %u\r\n", lba);
 	return lba;
 }
