@@ -2,10 +2,6 @@ TARGET_ASMFLAGS += -f elf
 TARGET_CFLAGS += -ffreestanding -nostdlib -Wall
 TARGET_LIBS += -lgcc
 TARGET_LDFLAGS += -T linker.ld -nostdlib
-#Watcom compiler
-#CC16?=/usr/bin/watcom/binl/wcc
-#CFLAGS16?=-4 -d3 -s -wx -ms -zl -zq -za99
-#LD16?=/usr/bin/watcom/binl/wlink
 
 SOURCES_ASM=$(wildcard *.asm)
 OBJECTS_ASM=$(patsubst %.asm, $(BUILD_DIR)/stage2/asm/%.obj, $(SOURCES_ASM))
